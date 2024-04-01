@@ -265,7 +265,7 @@ class Env:
         self.font = pygame.font.SysFont(None, 24)
 
         # Create the window
-        self.screen = pygame.display.set_mode((self.dic["WINDOW_WIDTH"], self.dic["WINDOW_HEIGHT"]))
+        self.screen = pygame.display.set_mode((self.dic["WINDOW_WIDTH"], self.dic["WINDOW_HEIGHT"]), pygame.RESIZABLE)
 
         # Draw the environment with items
         self.__draw()
