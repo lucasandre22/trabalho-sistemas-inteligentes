@@ -50,9 +50,8 @@ class Explorer(AbstAgent):
         # put the current position - the base - in the map
         self.map.add((self.x, self.y), 1, VS.NO_VICTIM, self.check_walls_and_lim())
 
-        #self.queue = deque([(0, 0)])
+        self.queue = deque()
         self.visited = set()
-        self.walked = []
         self.trap = False
 
     def check_direction(self):
@@ -64,11 +63,11 @@ class Explorer(AbstAgent):
                 new_y = self.y + dy
 
                 if (new_x, new_y) not in self.visited:
-                    self.walked.append((dx, dy))
+                    self.queue.append((dx, dy))
                     return dx, dy
         return None
 
-    # Essa função é chamada quando o robo fica preso. Pra achar um caminho ele volta por onde andou (lista walked)
+    # Essa função é chamada quando o robo fica preso. Pra achar um caminho ele volta por onde andou (lista queue)
     # até que encontre em alguma posição anterior um novo caminho livre
     def trapped(self):
         direction = self.check_direction()
@@ -77,8 +76,12 @@ class Explorer(AbstAgent):
             self.trap = False
             return direction
         # Senão continua voltando
-        dx, dy = self.walked.pop()
-        return -dx, -dy
+        if len(self.queue) == 0:
+            dx, dy = (0,0)
+            return dx, dy
+        else:
+            dx, dy = self.queue.pop()
+            return -dx, -dy
 
     def get_next_position(self):
         # Checa se o robô está num canto em que tudo em volta é parede ou ja foi visitado
@@ -94,7 +97,7 @@ class Explorer(AbstAgent):
 
         # Como ele está preso é necessário voltar
         self.trap = True
-        dx, dy = self.walked.pop()
+        dx, dy = self.queue.pop()
         return -dx, -dy
         
 
@@ -163,7 +166,7 @@ class Explorer(AbstAgent):
         method at each cycle. Must be implemented in every agent"""
         # Wait for the user to press Enter
         
-        input(f"{self.NAME}: type [ENTER] to proceed")
+        #input(f"{self.NAME}: type [ENTER] to proceed")
         if self.get_rtime() > self.time_to_comeback:
             self.explore()
             return True
