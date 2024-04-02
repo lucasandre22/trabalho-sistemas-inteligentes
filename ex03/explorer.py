@@ -56,17 +56,27 @@ class Explorer(AbstAgent):
 
     def check_direction(self):
         obstacles = self.check_walls_and_lim()
+        min_distance = float('inf')
+        best_direction = None
+
         for direction, status in enumerate(obstacles):
             if status == VS.CLEAR:
                 dx, dy = Explorer.AC_INCR[direction]
                 new_x = self.x + dx
                 new_y = self.y + dy
 
-                if (new_x, new_y) not in self.visited:
-                    self.queue.append((dx, dy))
-                    return dx, dy
-        return None
+                distance_to_origin = math.sqrt(new_x ** 2 + new_y ** 2)
 
+                if (new_x, new_y) not in self.visited and distance_to_origin < min_distance:
+                    min_distance = distance_to_origin
+                    best_direction = (dx, dy)
+
+        if best_direction is not None:
+            self.queue.append(best_direction)
+            return best_direction
+        else:
+            return None
+        
     # Essa função é chamada quando o robo fica preso. Pra achar um caminho ele volta por onde andou (lista queue)
     # até que encontre em alguma posição anterior um novo caminho livre
     def trapped(self):
@@ -166,7 +176,7 @@ class Explorer(AbstAgent):
         method at each cycle. Must be implemented in every agent"""
         # Wait for the user to press Enter
         
-        #input(f"{self.NAME}: type [ENTER] to proceed")
+        input(f"{self.NAME}: type [ENTER] to proceed")
         if self.get_rtime() > self.time_to_comeback:
             self.explore()
             return True
