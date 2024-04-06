@@ -9,6 +9,7 @@ import sys
 import os
 import random
 import math
+import heapq
 from abc import ABC, abstractmethod
 from vs.abstract_agent import AbstAgent
 from vs.constants import VS
@@ -27,6 +28,14 @@ class Stack:
 
     def is_empty(self):
         return len(self.items) == 0
+
+class Node:
+    def __init__(self, position, parent=None):
+        self.position = position
+        self.parent = parent
+        self.g = 0
+        self.h = 0
+        self.f = 0
 
 class Explorer(AbstAgent):
     def __init__(self, env, config_file, resc, type, general_map, nome):
@@ -103,6 +112,14 @@ class Explorer(AbstAgent):
             return self.get_next_position()        
 
 
+        # for the come back logic, first g_score is origin (0,0) and 0
+        self.x_base = 0
+        self.y_base = 0
+        self.g_score = None
+        self.priority_queue_set = []
+        self.come_back_walk_stack = Stack()
+        self.is_coming_to_base = False
+
     def check_direction(self):
         obstacles = self.check_walls_and_lim()
         min_distance = float('inf')
@@ -115,7 +132,7 @@ class Explorer(AbstAgent):
                 new_y = self.y + dy
                 distance_to_origin = math.sqrt((new_x - self.new_base[0]) ** 2 + (new_y - self.new_base[1]) ** 2)
 
-                if (new_x, new_y) not in self.visited and distance_to_origin < min_distance:
+                if new_position not in self.visited and distance_to_origin < min_distance:
                     min_distance = distance_to_origin
                     best_direction = (dx, dy)
 
@@ -133,7 +150,7 @@ class Explorer(AbstAgent):
         if direction:
             self.trap = False
             return direction
-        # Senão continua voltando
+        # Se não continua voltando
         if len(self.queue) == 0:
             dx, dy = (0,0)
             return dx, dy
@@ -192,7 +209,7 @@ class Explorer(AbstAgent):
                 self.victims[vs[0]] = ((self.x, self.y), vs)
                 print(f"{self.NAME} Victim found at ({self.x}, {self.y}), rtime: {self.get_rtime()}")
                 print(f"{self.NAME} Seq: {seq} Vital signals: {vs}")
-            
+
             # Calculates the difficulty of the visited cell
             difficulty = (rtime_bef - rtime_aft)
             if dx == 0 or dy == 0:
@@ -207,11 +224,78 @@ class Explorer(AbstAgent):
 
         return
 
-    def come_back(self):
-        dx, dy = self.walk_stack.pop()
-        dx = dx * -1
-        dy = dy * -1
+    def dfs_heristic(self, position):
+        return math.sqrt(position[0] ** 2 + position[1] ** 2)
 
+    # Goal will always be 0,0 to come back to base
+    def a_star_heuristic(self, position, goal):
+        return abs(position[0] - goal[0]) + abs(position[1] - goal[1])
+
+    def setup_a_star_come_back(self):
+        """
+        Starts the necessary variables to run a* algorithm.
+        """
+        current_position = (self.x, self.y)
+        base_position = (self.x_base, self.y_base)
+        self.priority_queue_set = [(self.a_star_heuristic(current_position, base_position),
+        current_position)]
+        self.is_coming_to_base = True
+        self.g_score = {(self.x, self.y): 0}
+
+    def come_back(self):
+
+        if (self.x, self.y) == (self.x_base, self.y_base):
+            print(f"{self.NAME}: already in base!")
+            return
+
+        """
+        As the agent have the map of the environment, we can execute a* to come back to base.
+        So we run the a* algorithm the first time this function is called, fill  come_back_walk_stack queue
+        with the directions of the path and use it in the next calls.
+        """
+        if not self.is_coming_to_base:
+            neighbor_position = None
+            DISTANCE_TO_NEIGHBOR = 1
+            save_x = self.x
+            save_y = self.y
+            self.setup_a_star_come_back()
+            
+            came_from = {}
+            first_time = True
+            while self.priority_queue_set:
+                # Ignore f_score as _ because it is not necessary for the logic, only for the priority heap
+                _, current_position = heapq.heappop(self.priority_queue_set)
+
+                # Simulate the walk
+                self.x = current_position[0]
+                self.y = current_position[1]
+                obstacles = self.check_walls_and_lim()
+
+                if current_position == (0,0):
+                    self.x = save_x
+                    self.y = save_y
+                    while current_position in came_from:
+                        self.come_back_walk_stack.push(came_from[current_position][1])
+                        current_position = came_from[current_position][0]
+                    break
+
+                if current_position in self.visited or first_time:
+                    first_time = False
+                    for direction, status in enumerate(obstacles):
+                        if status == VS.CLEAR:
+                            dx, dy = Explorer.AC_INCR[direction]
+                            neighbor_position = (self.x + dx, self.y + dy)
+                            tentative_g_score = self.g_score[current_position] + DISTANCE_TO_NEIGHBOR
+
+                            # Only go to cells previously visited! self.visited
+                            if neighbor_position in self.visited and (neighbor_position not in self.g_score or tentative_g_score < self.g_score[neighbor_position]):
+                                #best_direction = (dx, dy)
+                                came_from[neighbor_position] = (current_position, (dx, dy))
+                                self.g_score[neighbor_position] = tentative_g_score
+                                f_score = tentative_g_score + self.a_star_heuristic(neighbor_position, (0,0))
+                                heapq.heappush(self.priority_queue_set, (f_score, neighbor_position))
+
+        dx, dy = self.come_back_walk_stack.pop()
         result = self.walk(dx, dy)
         if result == VS.BUMPED:
             print(f"{self.NAME}: when coming back bumped at ({self.x+dx}, {self.y+dy}) , rtime: {self.get_rtime()}")
@@ -222,13 +306,16 @@ class Explorer(AbstAgent):
             self.x += dx
             self.y += dy
             print(f"{self.NAME}: coming back at ({self.x}, {self.y}), rtime: {self.get_rtime()}")
+            if((self.x, self.y) == (0,0)):
+                print(f"{self.NAME}: back to origin!")
+
         
     def deliberate(self) -> bool:
         """ The agent chooses the next action. The simulator calls this
         method at each cycle. Must be implemented in every agent"""
         # Wait for the user to press Enter
         
-        input(f"{self.NAME}: type [ENTER] to proceed")
+        #input(f"{self.NAME}: type [ENTER] to proceed")
         if self.get_rtime() > self.time_to_comeback:
             self.explore()
             return True
