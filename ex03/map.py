@@ -63,5 +63,9 @@ class Map:
                     row += f"[     ?     ] "
             print(row)
 
-
+    def set_map_data(self, other_map):
+        """Merges the map data from another instance of Map."""
+        for coord, data in other_map.map_data.items():
+            if coord not in self.map_data:
+                self.map_data[coord] = data
     

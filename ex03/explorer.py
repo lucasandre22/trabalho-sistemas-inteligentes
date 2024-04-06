@@ -29,7 +29,7 @@ class Stack:
         return len(self.items) == 0
 
 class Explorer(AbstAgent):
-    def __init__(self, env, config_file, resc):
+    def __init__(self, env, config_file, resc, type, general_map, nome):
         """ Construtor do agente random on-line
         @param env: a reference to the environment 
         @param config_file: the absolute path to the explorer's config file
@@ -46,13 +46,62 @@ class Explorer(AbstAgent):
         self.map = Map()           # create a map for representing the environment
         self.victims = {}          # a dictionary of found victims: (seq): ((x,y), [<vs>])
                                    # the key is the seq number of the victim,(x,y) the position, <vs> the list of vital signals
-
+        self.NAME = nome
         # put the current position - the base - in the map
         self.map.add((self.x, self.y), 1, VS.NO_VICTIM, self.check_walls_and_lim())
 
         self.queue = deque()
         self.visited = set()
+        self.new_direction = None
         self.trap = False
+        self.type = type
+        self.found_new_base = False
+        self.new_base = (0, 0)
+        self.general_map = general_map
+
+
+    def has_more_than_four_directions(self):
+        directions = self.check_walls_and_lim()
+        unblocked_count = sum(1 for direction in directions if direction == VS.CLEAR)
+        if unblocked_count >= 4:
+            return True
+        else:
+            return False
+    
+    def get_clear_direction(self):
+        directions = self.check_walls_and_lim()
+        count = 0
+
+        if self.type < 1 and self.type > 4:
+            self.type = 0
+
+        for direction, status in enumerate(directions):
+            if status == VS.CLEAR:
+                count += 1
+                if count == self.type:
+                    self.new_direction = direction
+
+    def set_new_base(self):
+        directions = self.check_walls_and_lim()
+        if self.has_more_than_four_directions() == False and self.new_direction == None:
+            return self.get_next_position() 
+        
+        elif self.has_more_than_four_directions() == True:
+            if self.new_direction == None:
+                self.get_clear_direction()
+                return Explorer.AC_INCR[self.new_direction]
+            else:
+                if directions[self.new_direction] == VS.CLEAR:
+                    return Explorer.AC_INCR[self.new_direction]
+                else:
+                    self.found_new_base = True
+                    self.new_base = (self.x, self.y)
+                    return self.get_next_position()   
+        else:
+            self.found_new_base = True
+            self.new_base = (self.x, self.y)
+            return self.get_next_position()        
+
 
     def check_direction(self):
         obstacles = self.check_walls_and_lim()
@@ -64,8 +113,7 @@ class Explorer(AbstAgent):
                 dx, dy = Explorer.AC_INCR[direction]
                 new_x = self.x + dx
                 new_y = self.y + dy
-
-                distance_to_origin = math.sqrt(new_x ** 2 + new_y ** 2)
+                distance_to_origin = math.sqrt((new_x - self.new_base[0]) ** 2 + (new_y - self.new_base[1]) ** 2)
 
                 if (new_x, new_y) not in self.visited and distance_to_origin < min_distance:
                     min_distance = distance_to_origin
@@ -112,7 +160,10 @@ class Explorer(AbstAgent):
         
 
     def explore(self):   
-        dx, dy = self.get_next_position() 
+        if self.found_new_base == False:
+           dx, dy = self.set_new_base()
+        else:
+           dx, dy = self.get_next_position()
         # Moves the body to another position
         rtime_bef = self.get_rtime()
         result = self.walk(dx, dy)
@@ -151,6 +202,7 @@ class Explorer(AbstAgent):
 
             # Update the map with the new cell
             self.map.add((self.x, self.y), difficulty, seq, self.check_walls_and_lim())
+
             print(f"{self.NAME}:at ({self.x}, {self.y}), diffic: {difficulty:.2f} vict: {seq} rtime: {self.get_rtime()}")
 
         return
@@ -187,7 +239,9 @@ class Explorer(AbstAgent):
                 # pass the walls and the victims (here, they're empty)
                 print(f"{self.NAME}: rtime {self.get_rtime()}, invoking the rescuer")
                 
-                self.resc.go_save_victims(self.map, self.victims)
+                self.general_map.set_map_data(self.map)
+                print(f"{self.NAME}:  map merged")
+                self.resc.go_save_victims(self.general_map, self.victims)
                 return False
             else:
                 self.come_back()

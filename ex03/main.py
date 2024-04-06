@@ -1,11 +1,12 @@
 import sys
 import os
 import time
-
+from map import Map
 ## importa classes
 from vs.environment import Env
 from explorer import Explorer
 from rescuer import Rescuer
+
 
 def main(data_folder_name):
    
@@ -24,13 +25,18 @@ def main(data_folder_name):
     # Instantiate agents rescuer and explorer
     resc = Rescuer(env, rescuer_file)
 
+    general_map = Map()
+
     # Explorer needs to know rescuer to send the map
     # that's why rescuer is instatiated before
-    exp = Explorer(env, explorer_file, resc)
+    explorer1 = Explorer(env, explorer_file, resc, 1, general_map, "robesta")
+    explorer2 = Explorer(env, explorer_file, resc, 2, general_map, "robobo")
+    explorer3 = Explorer(env, explorer_file, resc, 3, general_map, "robonaldinho")
+    explorer4 = Explorer(env, explorer_file, resc, 4, general_map, "robinho")
 
     # Run the environment simulator
     env.run()
-    
+
         
 if __name__ == '__main__':
     """ To get data from a different folder than the default called data
