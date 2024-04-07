@@ -68,4 +68,16 @@ class Map:
         for coord, data in other_map.map_data.items():
             if coord not in self.map_data:
                 self.map_data[coord] = data
-    
+
+    def get_neighbors(self, coord):
+        """Returns a dictionary containing the coordinates and data of all neighbors of a given X, Y coordinate."""
+        x, y = coord
+        neighbors = {}
+        for dx in [-1, 0, 1]:
+            for dy in [-1, 0, 1]:
+                if dx == 0 and dy == 0:
+                    continue
+                neighbor_coord = (x + dx, y + dy)
+                if self.in_map(neighbor_coord):
+                    neighbors[neighbor_coord] = self.get(neighbor_coord)
+        return neighbors

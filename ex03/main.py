@@ -30,9 +30,9 @@ def main(data_folder_name):
     # Explorer needs to know rescuer to send the map
     # that's why rescuer is instatiated before
     explorer1 = Explorer(env, explorer_file, resc, 1, general_map, "robesta")
-    explorer2 = Explorer(env, explorer_file, resc, 2, general_map, "robobo")
-    explorer3 = Explorer(env, explorer_file, resc, 3, general_map, "robonaldinho")
-    explorer4 = Explorer(env, explorer_file, resc, 4, general_map, "robinho")
+    #explorer2 = Explorer(env, explorer_file, resc, 2, general_map, "robobo")
+    #explorer3 = Explorer(env, explorer_file, resc, 3, general_map, "robonaldinho")
+    #explorer4 = Explorer(env, explorer_file, resc, 4, general_map, "robinho")
 
     # Run the environment simulator
     env.run()
@@ -45,7 +45,7 @@ if __name__ == '__main__':
     if len(sys.argv) > 1:
         data_folder_name = sys.argv[1]
     else:
-        data_folder_name = os.path.join("datasets", "data_10v_50x50")
-        #data_folder_name = os.path.join("datasets", "data_10v_12x12")
+        #data_folder_name = os.path.join("datasets", "data_10v_50x50")
+        data_folder_name = os.path.join("datasets", "data_10v_12x12")
         
     main(data_folder_name)
