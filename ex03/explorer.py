@@ -68,6 +68,14 @@ class Explorer(AbstAgent):
         self.new_base = (0, 0)
         self.general_map = general_map
 
+        # for the come back logic, first g_score is origin (0,0) and 0
+        self.x_base = 0
+        self.y_base = 0
+        self.g_score = None
+        self.priority_queue_set = []
+        self.come_back_walk_stack = Stack()
+        self.is_coming_to_base = False
+
 
     def has_more_than_four_directions(self):
         directions = self.check_walls_and_lim()
@@ -109,16 +117,7 @@ class Explorer(AbstAgent):
         else:
             self.found_new_base = True
             self.new_base = (self.x, self.y)
-            return self.get_next_position()        
-
-
-        # for the come back logic, first g_score is origin (0,0) and 0
-        self.x_base = 0
-        self.y_base = 0
-        self.g_score = None
-        self.priority_queue_set = []
-        self.come_back_walk_stack = Stack()
-        self.is_coming_to_base = False
+            return self.get_next_position()
 
     def check_direction(self):
         obstacles = self.check_walls_and_lim()
@@ -128,9 +127,9 @@ class Explorer(AbstAgent):
         for direction, status in enumerate(obstacles):
             if status == VS.CLEAR:
                 dx, dy = Explorer.AC_INCR[direction]
-                new_x = self.x + dx
-                new_y = self.y + dy
-                distance_to_origin = math.sqrt((new_x - self.new_base[0]) ** 2 + (new_y - self.new_base[1]) ** 2)
+                new_position = (self.x + dx, self.y + dy)
+
+                distance_to_origin = self.dfs_heristic(new_position)
 
                 if new_position not in self.visited and distance_to_origin < min_distance:
                     min_distance = distance_to_origin
