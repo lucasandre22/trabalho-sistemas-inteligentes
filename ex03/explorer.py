@@ -85,10 +85,11 @@ class Explorer(AbstAgent):
             It fills the self.distance_to_origin_by_block structure, that for each block visited (key),
             points to the distance to origin (value).
         """
+        weight = self.map.get((self.x, self.y))[0]
         if neighbour_position not in self.distance_to_origin_by_block:
-            self.distance_to_origin_by_block[neighbour_position] = self.distance_to_origin_by_block[self.x, self.y] + 1
-        elif self.distance_to_origin_by_block[neighbour_position] > self.distance_to_origin_by_block[self.x, self.y] + 1:
-            self.distance_to_origin_by_block[neighbour_position] = self.distance_to_origin_by_block[(self.x, self.y)] + 1
+            self.distance_to_origin_by_block[neighbour_position] = self.distance_to_origin_by_block[self.x, self.y] + weight
+        elif self.distance_to_origin_by_block[neighbour_position] > self.distance_to_origin_by_block[self.x, self.y] + weight:
+            self.distance_to_origin_by_block[neighbour_position] = self.distance_to_origin_by_block[(self.x, self.y)] + weight
 
     def has_more_than_four_directions(self):
         directions = self.check_walls_and_lim()
@@ -119,7 +120,7 @@ class Explorer(AbstAgent):
     def set_new_base(self):
         directions = self.check_walls_and_lim()
         if self.has_more_than_four_directions() == False and self.new_direction == None:
-            return self.get_next_position() 
+            return self.get_next_position()
         
         elif self.has_more_than_four_directions() == True:
             if self.new_direction == None:
@@ -150,12 +151,12 @@ class Explorer(AbstAgent):
                 dx, dy = Explorer.AC_INCR[direction]
                 new_position = (self.x + dx, self.y + dy)
 
-                distance_to_origin = self.dfs_heristic(new_position)
+                distance_to_origin = math.sqrt((new_position[0] - self.new_base[0]) ** 2 + (new_position[1] - self.new_base[1]) ** 2)
 
                 if new_position not in self.visited and distance_to_origin < min_distance:
                     min_distance = distance_to_origin
                     best_direction = (dx, dy)
-
+                
                 self.fill_distance_to_origin_by_block(new_position)
 
 
@@ -202,8 +203,10 @@ class Explorer(AbstAgent):
     def explore(self):   
         if self.found_new_base == False:
            dx, dy = self.set_new_base()
+           
         else:
            dx, dy = self.get_next_position()
+
         # Moves the body to another position
         rtime_bef = self.get_rtime()
         result = self.walk(dx, dy)
@@ -281,11 +284,11 @@ class Explorer(AbstAgent):
                 dx, dy = Explorer.AC_INCR[direction]
                 neighbor_position = (self.x + dx, self.y + dy)
 
-                if neighbor_position in self.visited:
+                if self.map.in_map(neighbor_position):
                     if self.distance_to_origin_by_block[neighbor_position] < min_distance:
                         min_distance = self.distance_to_origin_by_block[neighbor_position]
                         best_direction = (dx, dy)
-        
+
         dx, dy = best_direction
 
         result = self.walk(dx, dy)
