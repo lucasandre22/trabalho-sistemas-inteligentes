@@ -87,7 +87,7 @@ class Explorer(AbstAgent):
         """
         if neighbour_position not in self.distance_to_origin_by_block:
             self.distance_to_origin_by_block[neighbour_position] = self.distance_to_origin_by_block[self.x, self.y] + 1
-        elif self.distance_to_origin_by_block[neighbour_position] + 1 < self.distance_to_origin_by_block[self.x, self.y]:
+        elif self.distance_to_origin_by_block[neighbour_position] > self.distance_to_origin_by_block[self.x, self.y] + 1:
             self.distance_to_origin_by_block[neighbour_position] = self.distance_to_origin_by_block[(self.x, self.y)] + 1
 
     def has_more_than_four_directions(self):
@@ -270,60 +270,24 @@ class Explorer(AbstAgent):
         if (self.x, self.y) == (self.x_base, self.y_base):
             print(f"{self.NAME}: already in base!")
             return
+        
+        obstacles = self.check_walls_and_lim()
 
-        """
-        As the agent have the map of the environment, we can execute a* to come back to base.
-        So we run the a* algorithm the first time this function is called, fill  come_back_walk_stack queue
-        with the directions of the path and use it in the next calls.
-        """
-        if not self.is_coming_to_base:
-            neighbor_position = None
-            DISTANCE_TO_NEIGHBOR = 1
-            save_x = self.x
-            save_y = self.y
-            self.setup_a_star_come_back()
-            
-            came_from = {}
-            first_time = True
-            while self.priority_queue_set:
-                # Ignore f_score as _ because it is not necessary for the logic, only for the priority heap
-                _, current_position = heapq.heappop(self.priority_queue_set)
+        min_distance = float('inf')
+        best_direction = None
 
-                # Simulate the walk
-                self.x = current_position[0]
-                self.y = current_position[1]
-                obstacles = self.check_walls_and_lim()
+        for direction, status in enumerate(obstacles):
+            if status == VS.CLEAR:
+                dx, dy = Explorer.AC_INCR[direction]
+                neighbor_position = (self.x + dx, self.y + dy)
 
-                if current_position == (0,0):
-                    self.x = save_x
-                    self.y = save_y
-                    while current_position in came_from:
-                        self.come_back_walk_stack.push(came_from[current_position][1])
-                        current_position = came_from[current_position][0]
-                    break
+                if neighbor_position in self.visited:
+                    if self.distance_to_origin_by_block[neighbor_position] < min_distance:
+                        min_distance = self.distance_to_origin_by_block[neighbor_position]
+                        best_direction = (dx, dy)
+        
+        dx, dy = best_direction
 
-                if current_position in self.visited or first_time:
-                    first_time = False
-                    for direction, status in enumerate(obstacles):
-                        if status == VS.CLEAR:
-                            dx, dy = Explorer.AC_INCR[direction]
-                            neighbor_position = (self.x + dx, self.y + dy)
-                            tentative_g_score = None
-
-                            if neighbor_position in self.visited:
-                                tentative_g_score = self.g_score[current_position] + self.distance_to_origin_by_block[neighbor_position]
-                            else:
-                                tentative_g_score = self.g_score[current_position] + 1
-
-                            # Only go to cells previously visited! self.visited
-                            if neighbor_position in self.visited and (neighbor_position not in self.g_score or tentative_g_score < self.g_score[neighbor_position]):
-                                #best_direction = (dx, dy)
-                                came_from[neighbor_position] = (current_position, (dx, dy))
-                                self.g_score[neighbor_position] = tentative_g_score
-                                f_score = tentative_g_score + self.a_star_heuristic(neighbor_position, (0,0))
-                                heapq.heappush(self.priority_queue_set, (f_score, neighbor_position))
-
-        dx, dy = self.come_back_walk_stack.pop()
         result = self.walk(dx, dy)
         if result == VS.BUMPED:
             print(f"{self.NAME}: when coming back bumped at ({self.x+dx}, {self.y+dy}) , rtime: {self.get_rtime()}")
