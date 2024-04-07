@@ -75,7 +75,20 @@ class Explorer(AbstAgent):
         self.priority_queue_set = []
         self.come_back_walk_stack = Stack()
         self.is_coming_to_base = False
+        self.distance_to_origin_by_block = {}
+        self.distance_to_origin_by_block[(0,0)] = 0
 
+    
+    def fill_distance_to_origin_by_block(self, neighbour_position):
+        """
+            This function is called for each time the explorer is avaliating its neighbours.
+            It fills the self.distance_to_origin_by_block structure, that for each block visited (key),
+            points to the distance to origin (value).
+        """
+        if neighbour_position not in self.distance_to_origin_by_block:
+            self.distance_to_origin_by_block[neighbour_position] = self.distance_to_origin_by_block[self.x, self.y] + 1
+        elif self.distance_to_origin_by_block[neighbour_position] + 1 < self.distance_to_origin_by_block[self.x, self.y]:
+            self.distance_to_origin_by_block[neighbour_position] = self.distance_to_origin_by_block[(self.x, self.y)] + 1
 
     def has_more_than_four_directions(self):
         directions = self.check_walls_and_lim()
@@ -94,6 +107,11 @@ class Explorer(AbstAgent):
 
         for direction, status in enumerate(directions):
             if status == VS.CLEAR:
+                dx, dy = Explorer.AC_INCR[direction]
+                new_position = (self.x + dx, self.y + dy)
+
+                self.fill_distance_to_origin_by_block(new_position)
+
                 count += 1
                 if count == self.type:
                     self.new_direction = direction
@@ -109,7 +127,10 @@ class Explorer(AbstAgent):
                 return Explorer.AC_INCR[self.new_direction]
             else:
                 if directions[self.new_direction] == VS.CLEAR:
-                    return Explorer.AC_INCR[self.new_direction]
+                    dx, dy = Explorer.AC_INCR[self.new_direction]
+                    new_position = (self.x + dx, self.y + dy)
+                    self.fill_distance_to_origin_by_block(new_position)
+                    return dx, dy
                 else:
                     self.found_new_base = True
                     self.new_base = (self.x, self.y)
@@ -134,6 +155,9 @@ class Explorer(AbstAgent):
                 if new_position not in self.visited and distance_to_origin < min_distance:
                     min_distance = distance_to_origin
                     best_direction = (dx, dy)
+
+                self.fill_distance_to_origin_by_block(new_position)
+
 
         if best_direction is not None:
             self.queue.append(best_direction)
@@ -284,7 +308,12 @@ class Explorer(AbstAgent):
                         if status == VS.CLEAR:
                             dx, dy = Explorer.AC_INCR[direction]
                             neighbor_position = (self.x + dx, self.y + dy)
-                            tentative_g_score = self.g_score[current_position] + DISTANCE_TO_NEIGHBOR
+                            tentative_g_score = None
+
+                            if neighbor_position in self.visited:
+                                tentative_g_score = self.g_score[current_position] + self.distance_to_origin_by_block[neighbor_position]
+                            else:
+                                tentative_g_score = self.g_score[current_position] + 1
 
                             # Only go to cells previously visited! self.visited
                             if neighbor_position in self.visited and (neighbor_position not in self.g_score or tentative_g_score < self.g_score[neighbor_position]):
