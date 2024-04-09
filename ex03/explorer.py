@@ -10,8 +10,62 @@ import heapq
 from vs.abstract_agent import AbstAgent
 from vs.constants import VS
 from map import Map
+import random
 
-RTIME_THRESHOLD = 5
+
+class KMeans:
+    def __init__(self, n_clusters=4, max_iters=50):
+        self.n_clusters = n_clusters 
+        self.max_iters = max_iters  
+
+    def fit(self, coordinates):
+        #Inicializa os centróides em alguma vítima aleatória
+        self.centroids = [random.choice(coordinates) for _ in range(self.n_clusters)]
+
+        for _ in range(self.max_iters):
+            #Atribui cada ponto ao centróide mais próximo
+            clusters = self.set_point_to_clusters(coordinates)
+
+            #Atualiza os centróides com a média dos pontos em cada cluster
+            new_centroids = [self.compute_centroid(cluster) for cluster in clusters]
+
+            #Verifica se os centróides permaneceram os mesmos
+            if self.centroids_converged(self.centroids, new_centroids):
+                break  # Se convergiu, interrompe o loop
+
+            self.centroids = new_centroids  #Atualiza os centróides para a próxima iteração
+        print(clusters)
+
+    def set_point_to_clusters(self, coordinates):
+        #cria uma lista de lista para os clusters
+        clusters = [[] for _ in range(self.n_clusters)]
+
+        # procura qual o centroide mais próximo pra cada coordenada da vítima
+        for point in coordinates:  
+            min_distance = float('inf')
+            closest_centroid = None
+            for i, centroid in enumerate(self.centroids):
+                distance = self.euclidean_distance(point, centroid)
+                if distance < min_distance:
+                    min_distance = distance
+                    closest_centroid = i
+            clusters[closest_centroid].append(point)
+            
+        #retorna uma lista com os clusters
+        return clusters
+
+    def euclidean_distance(self, p1, p2):
+        return math.sqrt(sum((a - b) ** 2 for a, b in zip(p1, p2)))
+
+    def compute_centroid(self, cluster):
+        # Calcula o centróide de um cluster como a média dos pontos no cluster
+        num_points = len(cluster)  # Número de pontos no cluster
+        centroid = [sum(coords) / num_points for coords in zip(*cluster)]  # Calcula a média de cada coordenada
+        return centroid
+
+    def centroids_converged(self, centroids_old, centroids_new):
+        # Verifica se os centróides antigos e novos são os mesmos
+        return all(old == new for old, new in zip(centroids_old, centroids_new))
 
 class Stack:
     def __init__(self):
@@ -26,34 +80,6 @@ class Stack:
 
     def is_empty(self):
         return len(self.items) == 0
-
-class Node:
-    def __init__(self, state, parent=None, action=None, g=0, h=0):
-        self.state = state
-        self.parent = parent
-        self.g = g  # custo do início ao atual nó
-        self.h = h  # heuristica (distancia euclidiana)
-    
-    # metodo usado para saber na fila de prioridade qual nó tem mais prioridade
-    def __lt__(self, other):
-        return self.f() < other.f()
-
-    def f(self):
-        return self.g + self.h
-
-class PriorityQueue:
-    def __init__(self):
-        self.elements = []
-
-    def empty(self):
-        return len(self.elements) == 0
-
-    def put(self, item, priority):
-        heapq.heappush(self.elements, (priority, item))
-
-    def get(self):
-        return heapq.heappop(self.elements)[1]
-
 
 class Explorer(AbstAgent):
     def __init__(self, env, config_file, resc, type, general_map, nome):
@@ -77,75 +103,55 @@ class Explorer(AbstAgent):
         # put the current position - the base - in the map
         self.map.add((self.x, self.y), 1, VS.NO_VICTIM, self.check_walls_and_lim())
 
+        # atributos para lógica de busca
         self.queue = deque()
         self.visited = set()
         self.new_direction = None
         self.trap = False
         self.type = type
-        self.found_new_base = False
-        self.new_base = (0, 0)
+        self.found_new_exploring_point = False
+        self.exploring_point = (0, 0)
+
+        # atributo pra unir os mapas
         self.general_map = general_map
 
-
-
+        # atributos para lógica de voltar pra base
         self.is_coming_to_base = False
-        self.distance_to_origin_by_block = {}
-        self.distance_to_origin_by_block[(0,0)] = 0
-
+        self.nodes_distances_from_base = {}
+        self.nodes_distances_from_base[(0,0)] = 0
         self.min_cost_to_get_back = 0
 
-    def fill_distance_to_origin_by_block(self, neighbour_position):
+        #atributos para lógica de clustering
+        self.Kmeans = KMeans()
+
+
+
+    def get_estimated_time_to_return(self):
+        obstacles = self.check_walls_and_lim()
+        min_time = float('inf')
+
+        for direction, status in enumerate(obstacles):
+            if status == VS.CLEAR:
+                dx, dy = Explorer.AC_INCR[direction]
+                neighbor_position = (self.x + dx, self.y + dy)
+
+                if self.map.in_map(neighbor_position):
+                    if self.nodes_distances_from_base[neighbor_position] < min_time:
+                        min_time = self.nodes_distances_from_base[neighbor_position]
+        
+        self.min_cost_to_get_back = min_time
+
+    def fill_nodes_distances_from_base(self, neighbour_position):
         """
             This function is called for each time the explorer is avaliating its neighbours.
-            It fills the self.distance_to_origin_by_block structure, that for each block visited (key),
+            It fills the self.nodes_distances_from_base structure, that for each block visited (key),
             points to the distance to origin (value).
         """
         weight = self.map.get((self.x, self.y))[0]
-        if neighbour_position not in self.distance_to_origin_by_block:
-            self.distance_to_origin_by_block[neighbour_position] = self.distance_to_origin_by_block[self.x, self.y] + weight
-        elif self.distance_to_origin_by_block[neighbour_position] > self.distance_to_origin_by_block[self.x, self.y] + weight:
-            self.distance_to_origin_by_block[neighbour_position] = self.distance_to_origin_by_block[(self.x, self.y)] + weight
-
-    def astar(self):
-        # Nó inicial é sempre a posição atual do robô
-        start_node = Node(state=(self.x, self.y), g=0, h=0)
-        frontier = PriorityQueue()
-        frontier.put(start_node, start_node.f())
-        explored = set()
-        # inicia o melhor custo como infinito pra poder achar o minimo
-        best_cost = float('inf')  
-
-        best_path = []
-
-        while not frontier.empty():
-            current_node = frontier.get()
-            
-            # entra aqui se terminar de calcular o caminho ate a base
-            if current_node.state == (0, 0):
-                #compara o caminho de menor custo encontrado ate agora com o do no atual
-                best_cost = min(best_cost, current_node.g)
-                # passa o caminho percorrido pra lista best_path
-                while current_node:
-                    best_path.append(current_node.state)
-                    current_node = current_node.parent
-                best_path.reverse()  
-                return best_cost, best_path
-
-            explored.add(current_node.state)
-            # self.map.successors retorna o mapa só com os nós em volta do current_node
-            for next_state, cost in self.successors(current_node.state): 
-                # se os que tao em volta ainda nao foram explorados, preenche os custos até ele e armazena na fila de prioridade
-                if next_state not in explored:
-                    g = current_node.g + cost
-                    h = self.heuristic(next_state)
-                    next_node = Node(state=next_state, parent=current_node, g=g, h=h)
-                    frontier.put(next_node, next_node.f())
-
-        return best_path, best_cost
-
-    #distancia euclidiana
-    def heuristic(state):
-        return math.sqrt((state.x) ** 2 + (state.y) ** 2)
+        if neighbour_position not in self.nodes_distances_from_base:
+            self.nodes_distances_from_base[neighbour_position] = self.nodes_distances_from_base[self.x, self.y] + weight
+        elif self.nodes_distances_from_base[neighbour_position] > self.nodes_distances_from_base[self.x, self.y] + weight:
+            self.nodes_distances_from_base[neighbour_position] = self.nodes_distances_from_base[(self.x, self.y)] + weight
 
     #checa se uma coordenada possui mais de 4 direções livres
     def has_more_than_four_directions(self):
@@ -155,56 +161,55 @@ class Explorer(AbstAgent):
             return True
         else:
             return False
-    
+
     #dependendo do type do robo, cada um segue numa direção
     #se for 1: anda na primeira direção encontrada
     #se for 2: anda na segunda direção encontrada
     #assim por diante
-    def get_clear_direction(self):
+    #esse método só é chamado se houver pelo menos 4 direções possíveis
+    def get_direction(self):
         directions = self.check_walls_and_lim()
         count = 0
-
-        if self.type < 1 and self.type > 4:
-            self.type = 0
 
         for direction, status in enumerate(directions):
             if status == VS.CLEAR:
                 dx, dy = Explorer.AC_INCR[direction]
                 new_position = (self.x + dx, self.y + dy)
-
-                self.fill_distance_to_origin_by_block(new_position)
-
+                self.fill_nodes_distances_from_base(new_position)
                 count += 1
                 if count == self.type:
                     self.new_direction = direction
 
-    #quando o robô ta andando em uma direção e bate em algo, ele deve explorar em volta de onde bateu
-    #a "new_base" é a coordenada que ele vai explorar em volta
-    def set_new_base(self):
+    def exploring(self):
         directions = self.check_walls_and_lim()
-        if self.has_more_than_four_directions() == False and self.new_direction == None:
+        #se nao tiver uma direção ja setada e nem 4 possiveis direções, vai pra próxima posição
+        if not self.has_more_than_four_directions() and self.new_direction is None:
             return self.get_next_position()
         
-        elif self.has_more_than_four_directions() == True:
-            if self.new_direction == None:
-                self.get_clear_direction()
-                return Explorer.AC_INCR[self.new_direction]
-            else:
-                if directions[self.new_direction] == VS.CLEAR:
-                    dx, dy = Explorer.AC_INCR[self.new_direction]
-                    new_position = (self.x + dx, self.y + dy)
-                    self.fill_distance_to_origin_by_block(new_position)
-                    return dx, dy
-                else:
-                    self.found_new_base = True
-                    self.new_base = (self.x, self.y)
-                    return self.get_next_position()   
+        elif self.has_more_than_four_directions():
+            return self.explore_while_exploring_point_is_not_set(directions)
+        
         else:
-            self.found_new_base = True
-            self.new_base = (self.x, self.y)
+            self.found_new_exploring_point = True
+            self.exploring_point = (self.x, self.y)
             return self.get_next_position()
 
-    #esse metodo faz o robo andar sempre nos pontos mais proximos da base designada a ele
+    def explore_while_exploring_point_is_not_set(self, directions):
+        #recebe a direção que deve andar se ainda não tiver uma
+        if self.new_direction is None:
+            self.get_direction()
+            return Explorer.AC_INCR[self.new_direction]
+        #quando tiver uma direção, anda por ela enquanto estiver clear
+        elif directions[self.new_direction] == VS.CLEAR:
+            dx, dy = Explorer.AC_INCR[self.new_direction]
+            new_position = (self.x + dx, self.y + dy)
+            self.fill_nodes_distances_from_base(new_position)
+            return dx, dy
+        #se não tiver clear mais, um novo ponto de exploração é setado
+        else:
+            self.exploring()
+            return self.get_next_position()
+
     def check_direction(self):
         obstacles = self.check_walls_and_lim()
         min_distance = float('inf')
@@ -213,24 +218,15 @@ class Explorer(AbstAgent):
         for direction, status in enumerate(obstacles):
             if status == VS.CLEAR:
                 dx, dy = Explorer.AC_INCR[direction]
-
-                new_x = self.x + dx
-                new_y = self.y + dy
-
-                distance_to_origin = math.sqrt((new_x - self.new_base[0]) ** 2 + (new_y - self.new_base[1]) ** 2)
-
+                new_x, new_y = self.x + dx, self.y + dy
+                distance_to_origin = math.sqrt((new_x - self.exploring_point[0]) ** 2 + (new_y - self.exploring_point[1]) ** 2)
                 if (new_x, new_y) not in self.visited and distance_to_origin < min_distance:
-                    min_distance = distance_to_origin
-                    best_direction = (dx, dy)
-                
-                self.fill_distance_to_origin_by_block((new_x, new_y))
+                    min_distance, best_direction = distance_to_origin, (dx, dy)
+                self.fill_nodes_distances_from_base((new_x, new_y))
 
-
-        if best_direction is not None:
+        if best_direction:
             self.queue.append(best_direction)
-            return best_direction
-        else:
-            return None
+        return best_direction
         
     # Essa função é chamada quando o robo fica preso. Pra achar um caminho ele volta por onde andou (lista queue)
     # até que encontre em alguma posição anterior um novo caminho livre
@@ -267,20 +263,10 @@ class Explorer(AbstAgent):
 
     def heuristic(node, base):
         return abs(node.x) + abs(node.y)
-    
-    def successors(self, coord):
-        neighbors = self.map.get_neighbors(coord)
-        successors = []
-        for neighbor_coord, data in neighbors.items():
-            # Extracting the difficulty, which represents the cost, from the data
-            cost = data[0] if data else None
-            successors.append((neighbor_coord, cost))
-        return successors
-        
 
     def explore(self):   
-        if self.found_new_base == False:
-           dx, dy = self.set_new_base()
+        if self.found_new_exploring_point == False:
+           dx, dy = self.exploring()
            
         else:
            dx, dy = self.get_next_position()
@@ -345,12 +331,12 @@ class Explorer(AbstAgent):
                 neighbor_position = (self.x + dx, self.y + dy)
 
                 if self.map.in_map(neighbor_position):
-                    if self.distance_to_origin_by_block[neighbor_position] < min_distance:
+                    if self.nodes_distances_from_base[neighbor_position] < min_distance:
 
                         if dx == 0 or dy == 0:
-                            min_distance = self.distance_to_origin_by_block[neighbor_position] + (self.COST_LINE - self.COST_DIAG)
+                            min_distance = self.nodes_distances_from_base[neighbor_position] + (self.COST_LINE - self.COST_DIAG)
                         else:
-                            min_distance = self.distance_to_origin_by_block[neighbor_position] + (self.COST_DIAG - self.COST_LINE)
+                            min_distance = self.nodes_distances_from_base[neighbor_position] + (self.COST_DIAG - self.COST_LINE)
                         
                         best_direction = (dx, dy)
 
@@ -367,31 +353,13 @@ class Explorer(AbstAgent):
             self.x += dx
             self.y += dy
             print(f"{self.NAME}: coming back at ({self.x}, {self.y}), rtime: {self.get_rtime()}")
-
-    def calculate_least_time_to_get_back(self):
-        obstacles = self.check_walls_and_lim()
-        min_time = float('inf')
-
-        for direction, status in enumerate(obstacles):
-            if status == VS.CLEAR:
-                dx, dy = Explorer.AC_INCR[direction]
-                neighbor_position = (self.x + dx, self.y + dy)
-
-                if self.map.in_map(neighbor_position):
-                    if self.distance_to_origin_by_block[neighbor_position] < min_time:
-                        min_time = self.distance_to_origin_by_block[neighbor_position]
-        
-        self.min_cost_to_get_back = min_time
-    
-    def get_time_to_get_back(self):
-        return self.min_cost_to_get_back + RTIME_THRESHOLD
         
     def deliberate(self) -> bool:
         """ The agent chooses the next action. The simulator calls this
         method at each cycle. Must be implemented in every agent"""
-        if self.get_rtime() > self.get_time_to_get_back():
+        if self.get_rtime() > self.min_cost_to_get_back * 1.75:
             self.explore()
-            self.calculate_least_time_to_get_back()
+            self.get_estimated_time_to_return()
             return True
         else:
             # time to come back to the base
@@ -400,6 +368,9 @@ class Explorer(AbstAgent):
                 # pass the walls and the victims (here, they're empty)
                 print(f"{self.NAME}: rtime {self.get_rtime()}, invoking the rescuer")
                 input(f"{self.NAME}: type [ENTER] to proceed")
+                coordinates = [coords for coords, _ in self.victims.values()]
+                self.Kmeans.fit(coordinates)
+
                 self.resc.go_save_victims(self.map, self.victims)
                 return False
             else:
