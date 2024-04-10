@@ -39,6 +39,7 @@ class Rescuer(AbstAgent):
         # Starts in IDLE state.
         # It changes to ACTIVE when the map arrives
         self.set_state(VS.IDLE)
+        self.is_explorer = False
 
     
     def go_save_victims(self, map, victims):

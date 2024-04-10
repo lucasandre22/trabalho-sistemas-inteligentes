@@ -42,6 +42,12 @@ class AbstAgent:
                
         self.__env = env            # private - ref. to the environment
         self.__body = None          # private - ref. to the physical part of the agent in the env
+        self.is_explorer = False
+
+        # Added attributes for k_means logic
+        self.victims = None
+        self.map = None
+        self.resc = None
         
         # Read agents config file for controlling time
         with open(config_file, "r") as file:

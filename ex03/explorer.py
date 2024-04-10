@@ -12,66 +12,7 @@ from vs.constants import VS
 from map import Map
 import random
 import csv
-
-
-class KMeans:
-    def __init__(self, n_clusters=4, max_iters=50):
-        self.n_clusters = n_clusters 
-        self.max_iters = max_iters
-        self.clusters = None
-
-    def get_clusters(self):
-        return self.clusters
-
-    def fit(self, coordinates):
-        
-        #Inicializa os centróides em alguma vítima aleatória
-        self.centroids = [random.choice(coordinates) for _ in range(self.n_clusters)]
-
-        for _ in range(self.max_iters):
-            #Atribui cada ponto ao centróide mais próximo
-            clusters = self.set_point_to_clusters(coordinates)
-
-            #Atualiza os centróides com a média dos pontos em cada cluster
-            new_centroids = [self.compute_centroid(cluster) for cluster in clusters]
-
-            #Verifica se os centróides permaneceram os mesmos
-            if self.centroids_converged(self.centroids, new_centroids):
-                break  # Se convergiu, interrompe o loop
-
-            self.centroids = new_centroids  #Atualiza os centróides para a próxima iteração
-        self.clusters = clusters
-
-    def set_point_to_clusters(self, coordinates):
-        #cria uma lista de lista para os clusters
-        clusters = [[] for _ in range(self.n_clusters)]
-
-        # procura qual o centroide mais próximo pra cada coordenada da vítima
-        for point in coordinates:  
-            min_distance = float('inf')
-            closest_centroid = None
-            for i, centroid in enumerate(self.centroids):
-                distance = self.euclidean_distance(point, centroid)
-                if distance < min_distance:
-                    min_distance = distance
-                    closest_centroid = i
-            clusters[closest_centroid].append(point)
-            
-        #retorna uma lista com os clusters
-        return clusters
-
-    def euclidean_distance(self, p1, p2):
-        return math.sqrt(sum((a - b) ** 2 for a, b in zip(p1, p2)))
-
-    def compute_centroid(self, cluster):
-        # Calcula o centróide de um cluster como a média dos pontos no cluster
-        num_points = len(cluster)  # Número de pontos no cluster
-        centroid = [sum(coords) / num_points for coords in zip(*cluster)]  # Calcula a média de cada coordenada
-        return centroid
-
-    def centroids_converged(self, centroids_old, centroids_new):
-        # Verifica se os centróides antigos e novos são os mesmos
-        return all(old == new for old, new in zip(centroids_old, centroids_new))
+from k_means import KMeans
 
 class Stack:
     def __init__(self):
@@ -129,6 +70,7 @@ class Explorer(AbstAgent):
 
         #atributos para lógica de clustering
         self.Kmeans = KMeans()
+        self.is_explorer = True
 
     def get_estimated_time_to_return(self):
         obstacles = self.check_walls_and_lim()
@@ -379,44 +321,15 @@ class Explorer(AbstAgent):
             if self.x == 0 and self.y == 0:
                 # time to wake up the rescuer
                 # pass the walls and the victims (here, they're empty)
+                self.set_state(VS.IDLE)
                 print(f"{self.NAME}: rtime {self.get_rtime()}, invoking the rescuer")
-                input(f"{self.NAME}: type [ENTER] to proceed")
-                
-                coordinates = [coords for coords, _ in self.victims.values()]
+                #input(f"{self.NAME}: type [ENTER] to proceed")
 
-                self.Kmeans.fit(coordinates)
-                self.generate_clusters_files()
-
-                self.resc.go_save_victims(self.map, self.victims)
+                #Do not save victims yet, wait for clusters
+                #self.resc.go_save_victims(self.map, self.victims)
                 return False
             else:
                 self.come_back()
                 return True
-            
-    def generate_clusters_files(self):
-        """
-            Gera N arquivos clusterN.txt sendo N o total de clusters, para cada um,
-            contendo as informações das vítimas.
-        """
-
-        victim_in_position_map = {}
-        for i in range(0, len(self.victims)):
-            victim_in_position_map[self.victims[i][0]] = i
-        
-        number = 1
-        for cluster in self.Kmeans.get_clusters():
-            filename = "cluster" + str(number) + ".txt"
-            with open(filename, 'w', newline='') as csvfile:
-                writer = csv.writer(csvfile)
-                writer.writerow(['id','x','y','0.0','1'])
-                for i in range(0, len(cluster)):
-                    victim = self.victims[victim_in_position_map[cluster[i]]]
-                    id = victim[1][0]
-                    x = victim[0][0]
-                    y = victim[0][1]
-                    gravity = victim[0][1]
-                    label = victim[0][1]
-                    writer.writerow([id, x, y, gravity, label])
-            number += 1
 
         
