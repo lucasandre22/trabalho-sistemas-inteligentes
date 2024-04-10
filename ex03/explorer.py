@@ -124,8 +124,6 @@ class Explorer(AbstAgent):
         #atributos para lógica de clustering
         self.Kmeans = KMeans()
 
-
-
     def get_estimated_time_to_return(self):
         obstacles = self.check_walls_and_lim()
         min_time = float('inf')
@@ -135,6 +133,7 @@ class Explorer(AbstAgent):
                 dx, dy = Explorer.AC_INCR[direction]
                 neighbor_position = (self.x + dx, self.y + dy)
 
+                #Procura menor tempo pra voltar entre os vizinhos
                 if self.map.in_map(neighbor_position):
                     if self.nodes_distances_from_base[neighbor_position] < min_time:
                         min_time = self.nodes_distances_from_base[neighbor_position]
@@ -161,13 +160,15 @@ class Explorer(AbstAgent):
             return True
         else:
             return False
-
-    #dependendo do type do robo, cada um segue numa direção
-    #se for 1: anda na primeira direção encontrada
-    #se for 2: anda na segunda direção encontrada
-    #assim por diante
-    #esse método só é chamado se houver pelo menos 4 direções possíveis
+    
     def get_direction(self):
+        """
+            dependendo do type do robo, cada um segue numa direção
+            se for 1: anda na primeira direção encontrada
+            se for 2: anda na segunda direção encontrada
+            assim por diante
+            esse método só é chamado se houver pelo menos 4 direções possíveis
+        """
         directions = self.check_walls_and_lim()
         count = 0
 
@@ -207,7 +208,7 @@ class Explorer(AbstAgent):
             return dx, dy
         #se não tiver clear mais, um novo ponto de exploração é setado
         else:
-            self.exploring()
+            #self.exploring()
             return self.get_next_position()
 
     def check_direction(self):
@@ -227,10 +228,12 @@ class Explorer(AbstAgent):
         if best_direction:
             self.queue.append(best_direction)
         return best_direction
-        
-    # Essa função é chamada quando o robo fica preso. Pra achar um caminho ele volta por onde andou (lista queue)
-    # até que encontre em alguma posição anterior um novo caminho livre
+
     def trapped(self):
+        """
+            Essa função é chamada quando o robo fica preso. Pra achar um caminho ele volta por onde andou (lista queue)
+            até que encontre em alguma posição anterior um novo caminho livre
+        """
         direction = self.check_direction()
         # Vai entrar aqui se achar um novo caminho
         if direction:
@@ -325,6 +328,7 @@ class Explorer(AbstAgent):
         min_distance = float('inf')
         best_direction = None
 
+        #Basicamente sempre encontra o menor caminho pra voltar entre seus vizinhos
         for direction, status in enumerate(obstacles):
             if status == VS.CLEAR:
                 dx, dy = Explorer.AC_INCR[direction]
@@ -333,6 +337,7 @@ class Explorer(AbstAgent):
                 if self.map.in_map(neighbor_position):
                     if self.nodes_distances_from_base[neighbor_position] < min_distance:
 
+                        #Se estiver na mesma linha ou na mesma coluna, anda sempre em linha
                         if dx == 0 or dy == 0:
                             min_distance = self.nodes_distances_from_base[neighbor_position] + (self.COST_LINE - self.COST_DIAG)
                         else:
