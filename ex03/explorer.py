@@ -110,7 +110,7 @@ class Explorer(AbstAgent):
         self.trap = False
         self.type = type
         self.found_new_exploring_point = False
-        self.exploring_point = (0, 0)
+        self.new_exploring_point = (0, 0)
 
         # atributo pra unir os mapas
         self.general_map = general_map
@@ -161,56 +161,49 @@ class Explorer(AbstAgent):
         else:
             return False
     
-    def get_direction(self):
-        """
-            dependendo do type do robo, cada um segue numa direção
-            se for 1: anda na primeira direção encontrada
-            se for 2: anda na segunda direção encontrada
-            assim por diante
-            esse método só é chamado se houver pelo menos 4 direções possíveis
-        """
+    def get_clear_direction(self):
         directions = self.check_walls_and_lim()
         count = 0
+
 
         for direction, status in enumerate(directions):
             if status == VS.CLEAR:
                 dx, dy = Explorer.AC_INCR[direction]
                 new_position = (self.x + dx, self.y + dy)
+
                 self.fill_nodes_distances_from_base(new_position)
+
                 count += 1
                 if count == self.type:
                     self.new_direction = direction
 
-    def exploring(self):
+    #quando o robô ta andando em uma direção e bate em algo, ele deve explorar em volta de onde bateu
+    #a "new_base" é a coordenada que ele vai explorar em volta
+    def set_new_base(self):
         directions = self.check_walls_and_lim()
-        #se nao tiver uma direção ja setada e nem 4 possiveis direções, vai pra próxima posição
-        if not self.has_more_than_four_directions() and self.new_direction is None:
+        if self.has_more_than_four_directions() == False and self.new_direction == None:
             return self.get_next_position()
         
-        elif self.has_more_than_four_directions():
-            return self.explore_while_exploring_point_is_not_set(directions)
-        
+        elif self.has_more_than_four_directions() == True:
+            if self.new_direction == None:
+                self.get_clear_direction()
+                return Explorer.AC_INCR[self.new_direction]
+            else:
+                if directions[self.new_direction] == VS.CLEAR and self.found_new_exploring_point == False:
+                    dx, dy = Explorer.AC_INCR[self.new_direction]
+                    new_position = (self.x + dx, self.y + dy)
+                    self.fill_nodes_distances_from_base(new_position)
+                    return dx, dy
+                else:
+                    self.found_new_exploring_point = True
+                    self.new_exploring_point = (self.x, self.y)
+                    return self.get_next_position()   
         else:
             self.found_new_exploring_point = True
-            self.exploring_point = (self.x, self.y)
+            self.new_exploring_point = (self.x, self.y)
             return self.get_next_position()
 
-    def explore_while_exploring_point_is_not_set(self, directions):
-        #recebe a direção que deve andar se ainda não tiver uma
-        if self.new_direction is None:
-            self.get_direction()
-            return Explorer.AC_INCR[self.new_direction]
-        #quando tiver uma direção, anda por ela enquanto estiver clear
-        elif directions[self.new_direction] == VS.CLEAR:
-            dx, dy = Explorer.AC_INCR[self.new_direction]
-            new_position = (self.x + dx, self.y + dy)
-            self.fill_nodes_distances_from_base(new_position)
-            return dx, dy
-        #se não tiver clear mais, um novo ponto de exploração é setado
-        else:
-            #self.exploring()
-            return self.get_next_position()
-
+    #esse metodo faz o robo andar sempre nos pontos mais proximos da base designada a ele
     def check_direction(self):
         obstacles = self.check_walls_and_lim()
         min_distance = float('inf')
@@ -219,16 +212,25 @@ class Explorer(AbstAgent):
         for direction, status in enumerate(obstacles):
             if status == VS.CLEAR:
                 dx, dy = Explorer.AC_INCR[direction]
-                new_x, new_y = self.x + dx, self.y + dy
-                distance_to_origin = math.sqrt((new_x - self.exploring_point[0]) ** 2 + (new_y - self.exploring_point[1]) ** 2)
+
+                new_x = self.x + dx
+                new_y = self.y + dy
+
+                distance_to_origin = math.sqrt((new_x - self.new_exploring_point[0]) ** 2 + (new_y - self.new_exploring_point[1]) ** 2)
+
                 if (new_x, new_y) not in self.visited and distance_to_origin < min_distance:
-                    min_distance, best_direction = distance_to_origin, (dx, dy)
+                    min_distance = distance_to_origin
+                    best_direction = (dx, dy)
+                
                 self.fill_nodes_distances_from_base((new_x, new_y))
 
-        if best_direction:
-            self.queue.append(best_direction)
-        return best_direction
 
+        if best_direction is not None:
+            self.queue.append(best_direction)
+            return best_direction
+        else:
+            return None
+            
     def trapped(self):
         """
             Essa função é chamada quando o robo fica preso. Pra achar um caminho ele volta por onde andou (lista queue)
@@ -269,7 +271,7 @@ class Explorer(AbstAgent):
 
     def explore(self):   
         if self.found_new_exploring_point == False:
-           dx, dy = self.exploring()
+           dx, dy = self.set_new_base()
            
         else:
            dx, dy = self.get_next_position()
@@ -362,7 +364,7 @@ class Explorer(AbstAgent):
     def deliberate(self) -> bool:
         """ The agent chooses the next action. The simulator calls this
         method at each cycle. Must be implemented in every agent"""
-        if self.get_rtime() > self.min_cost_to_get_back * 1.75:
+        if self.get_rtime() > self.min_cost_to_get_back * 2:
             self.explore()
             self.get_estimated_time_to_return()
             return True
