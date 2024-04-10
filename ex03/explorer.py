@@ -11,14 +11,20 @@ from vs.abstract_agent import AbstAgent
 from vs.constants import VS
 from map import Map
 import random
+import csv
 
 
 class KMeans:
     def __init__(self, n_clusters=4, max_iters=50):
         self.n_clusters = n_clusters 
-        self.max_iters = max_iters  
+        self.max_iters = max_iters
+        self.clusters = None
+
+    def get_clusters(self):
+        return self.clusters
 
     def fit(self, coordinates):
+        
         #Inicializa os centróides em alguma vítima aleatória
         self.centroids = [random.choice(coordinates) for _ in range(self.n_clusters)]
 
@@ -34,7 +40,7 @@ class KMeans:
                 break  # Se convergiu, interrompe o loop
 
             self.centroids = new_centroids  #Atualiza os centróides para a próxima iteração
-        print(clusters)
+        self.clusters = clusters
 
     def set_point_to_clusters(self, coordinates):
         #cria uma lista de lista para os clusters
@@ -375,11 +381,42 @@ class Explorer(AbstAgent):
                 # pass the walls and the victims (here, they're empty)
                 print(f"{self.NAME}: rtime {self.get_rtime()}, invoking the rescuer")
                 input(f"{self.NAME}: type [ENTER] to proceed")
+                
                 coordinates = [coords for coords, _ in self.victims.values()]
+
                 self.Kmeans.fit(coordinates)
+                self.generate_clusters_files()
 
                 self.resc.go_save_victims(self.map, self.victims)
                 return False
             else:
                 self.come_back()
                 return True
+            
+    def generate_clusters_files(self):
+        """
+            Gera N arquivos clusterN.txt sendo N o total de clusters, para cada um,
+            contendo as informações das vítimas.
+        """
+
+        victim_in_position_map = {}
+        for i in range(0, len(self.victims)):
+            victim_in_position_map[self.victims[i][0]] = i
+        
+        number = 1
+        for cluster in self.Kmeans.get_clusters():
+            filename = "cluster" + str(number) + ".txt"
+            with open(filename, 'w', newline='') as csvfile:
+                writer = csv.writer(csvfile)
+                writer.writerow(['id','x','y','0.0','1'])
+                for i in range(0, len(cluster)):
+                    victim = self.victims[victim_in_position_map[cluster[i]]]
+                    id = victim[1][0]
+                    x = victim[0][0]
+                    y = victim[0][1]
+                    gravity = victim[0][1]
+                    label = victim[0][1]
+                    writer.writerow([id, x, y, gravity, label])
+            number += 1
+
+        
