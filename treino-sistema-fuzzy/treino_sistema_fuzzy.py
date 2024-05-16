@@ -83,15 +83,6 @@ class FuzzyLogic:
 
         return self.priority.output['prioridade'] 
 
-    def compute_priority(self, qPA, pulso, frequencia_respiratoria):
-        self.priority.input['qPA'] = qPA
-        self.priority.input['pulso'] = pulso
-        self.priority.input['frequencia_respiratoria'] = frequencia_respiratoria
-
-        self.priority.compute()
-
-        return self.priority.output['prioridade'] 
-
 if __name__ == '__main__':
     logic = FuzzyLogic()
 
