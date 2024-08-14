@@ -5,7 +5,7 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.utils import to_categorical
 
-class VitalSignsModel:
+class RedeNeural:
     def __init__(self, data_path):
         self.list_of_victims = self.read_vital_signals(data_path)
 
@@ -50,7 +50,7 @@ class VitalSignsModel:
         self.model.save("RNmodelo.h5")
 
 if __name__ == "__main__":
-    model = VitalSignsModel('../datasets/data_4000v/env_vital_signals.txt')
+    model = RedeNeural('../datasets/data_4000v/env_vital_signals.txt')
 
     model.train()
 
