@@ -36,7 +36,7 @@ class RedeNeural:
         return vital_signals
 
     def train(self):
-        self.model.fit(self.X, self.y, epochs=15, batch_size=1)
+        self.model.fit(self.X, self.y, epochs=60, batch_size=2)
 
     def evaluate(self):
         loss, mse = self.model.evaluate(self.X, self.y)
@@ -56,6 +56,6 @@ if __name__ == "__main__":
 
     model.evaluate()
 
-    novos_dados = np.array([[-5.724860,46.693170,12.655292]])
+    novos_dados = np.array([[-0.000000,108.934128,14.587328]]) 
     classe_predita = model.predict(novos_dados)
     print(f'Classe predita: {classe_predita}')
