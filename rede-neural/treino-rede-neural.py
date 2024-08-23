@@ -3,11 +3,21 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
-from tensorflow.keras.utils import to_categorical
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error, mean_absolute_error
 
 class RedeNeural:
-    def __init__(self, data_path):
-        self.list_of_victims = self.read_vital_signals(data_path)
+    def __init__(self, caminho_dados, 
+                 numero_neuronios=64, 
+                 numero_camadas=2, 
+                 ativacao='relu', 
+                 otimizador='adam', 
+                 perda='mean_squared_error', 
+                 metricas=['mean_squared_error'], 
+                 epocas=60, 
+                 tamanho_lote=2):
+        
+        self.list_of_victims = self.read_vital_signals(caminho_dados)
 
         self.qPA_data = [signals[0] for signals in self.list_of_victims.values()]
         self.pulse_data = [signals[1] for signals in self.list_of_victims.values()]
@@ -17,45 +27,81 @@ class RedeNeural:
         self.X = np.array(list(zip(self.qPA_data, self.pulse_data, self.respiratory_data)))
         self.y = np.array(self.gravity_data)
 
-        self.model = Sequential()
-        self.model.add(Dense(64, input_shape=(3,), activation='relu'))
-        self.model.add(Dense(64, activation='relu'))
-        self.model.add(Dense(1))
+        # parâmetros
+        self.numero_neuronios = numero_neuronios
+        self.numero_camadas = numero_camadas
+        self.ativacao = ativacao
+        self.otimizador = otimizador
+        self.perda = perda
+        self.metricas = metricas
+        self.epocas = epocas
+        self.tamanho_lote = tamanho_lote
 
-        self.model.compile(optimizer='adam', loss='mean_squared_error', metrics=['mean_squared_error'])
-
+        # divide treino (75%) e teste (25%)
+        self.X_treino, self.X_teste, self.y_treino, self.y_teste = train_test_split(
+            self.X, self.y, test_size=0.25, random_state=10)  # random_state é só uma seed pra pegar os dados aleatórios
+        
     def read_vital_signals(self, file_path):
-        vital_signals = {}
+        sinais_virais = {}
         dir_path = os.path.dirname(os.path.realpath(__file__))
         with open(os.path.join(dir_path, file_path), 'r') as file:
             for line in file:
                 parts = line.strip().split(',')
-                victim_id = int(parts[0])
-                signals = list(map(float, parts[3:7]))
-                vital_signals[victim_id] = signals
-        return vital_signals
+                id_vitima = int(parts[0])
+                sinais = list(map(float, parts[3:7]))
+                sinais_virais[id_vitima] = sinais
+        return sinais_virais
+
+    def build_model(self):
+        model = Sequential()
+        model.add(Dense(self.numero_neuronios, input_shape=(3,), activation=self.ativacao))
+        
+        for _ in range(self.numero_camadas - 1):
+            model.add(Dense(self.numero_neuronios, activation=self.ativacao))
+        
+        model.add(Dense(1))
+        
+        model.compile(optimizer=self.otimizador, loss=self.perda, metrics=self.metricas)
+        return model
 
     def train(self):
-        self.model.fit(self.X, self.y, epochs=60, batch_size=2)
+        model = self.build_model()
+        model.fit(self.X_treino, self.y_treino, epochs=self.epocas, batch_size=self.tamanho_lote, verbose=0)
+        return model
 
-    def evaluate(self):
-        loss, mse = self.model.evaluate(self.X, self.y)
-        print(f'Loss: {loss}, MSE: {mse}')
+    def evaluate(self, model):
+        previsoes_treino = model.predict(self.X_treino).flatten()
+        mse_treino = mean_squared_error(self.y_treino, previsoes_treino)
+        mae_treino = mean_absolute_error(self.y_treino, previsoes_treino)
+        rmse_treino = np.sqrt(mse_treino)
 
-    def predict(self, new_data):
-        predicao_normalizada = self.model.predict(new_data)
+        print(f'Treino MSE: {mse_treino}, Treino MAE: {mae_treino}, Treino RMSE: {rmse_treino}')
+
+        previsoes_teste = model.predict(self.X_teste).flatten()
+        mse_teste = mean_squared_error(self.y_teste, previsoes_teste)
+        mae_teste = mean_absolute_error(self.y_teste, previsoes_teste)
+        rmse_teste = np.sqrt(mse_teste)
+
+        print(f'Teste MSE: {mse_teste}, Teste MAE: {mae_teste}, Teste RMSE: {rmse_teste}')
+
+        if rmse_treino > rmse_teste:
+            print("Possível underfitting")
+        elif rmse_treino < rmse_teste:
+            print("Possível overfitting")
+        else:
+            print("Ajustado")
+
+    def predict(self, model, novos_dados):
+        predicao_normalizada = model.predict(novos_dados)
         return predicao_normalizada
 
-    def save(self):
-        self.model.save("RNmodelo.h5")
-
 if __name__ == "__main__":
-    model = RedeNeural('../datasets/data_4000v/env_vital_signals.txt')
+    instancia_modelo = RedeNeural('../datasets/data_4000v/env_vital_signals.txt')
 
-    model.train()
+    modelo_treinado = instancia_modelo.train()
 
-    model.evaluate()
+    instancia_modelo.evaluate(modelo_treinado)
 
-    novos_dados = np.array([[-0.000000,108.934128,14.587328]]) 
-    classe_predita = model.predict(novos_dados)
+    novos_dados = np.array([[-0.000000, 108.934128, 14.587328]]) 
+    classe_predita = instancia_modelo.predict(modelo_treinado, novos_dados)
     print(f'Classe predita: {classe_predita}')
