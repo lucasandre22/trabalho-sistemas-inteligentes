@@ -94,6 +94,10 @@ class RedeNeural:
     def predict(self, model, novos_dados):
         predicao_normalizada = model.predict(novos_dados)
         return predicao_normalizada
+    
+    def salvar_modelo(self, model, caminho_modelo):
+        model.save(caminho_modelo)
+        print(f"Modelo salvo em: {caminho_modelo}")
 
 if __name__ == "__main__":
     instancia_modelo = RedeNeural('../datasets/data_4000v/env_vital_signals.txt')
@@ -104,4 +108,6 @@ if __name__ == "__main__":
 
     novos_dados = np.array([[-0.000000, 108.934128, 14.587328]]) 
     classe_predita = instancia_modelo.predict(modelo_treinado, novos_dados)
+
+    instancia_modelo.salvar_modelo(modelo_treinado, 'modelo_rede_neural.h5')
     print(f'Classe predita: {classe_predita}')
