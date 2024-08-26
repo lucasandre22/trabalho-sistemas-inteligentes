@@ -22,6 +22,9 @@ from vs.constants import VS
 class Map:
     def __init__(self):
         self.map_data = {}
+    
+    def __len__(self):
+        return len(self.map_data)
 
     def in_map(self, coord):
         if coord in self.map_data:
@@ -70,14 +73,32 @@ class Map:
                 self.map_data[coord] = data
 
     def get_neighbors(self, coord):
-        """Returns a dictionary containing the coordinates and data of all neighbors of a given X, Y coordinate."""
-        x, y = coord
-        neighbors = {}
-        for dx in [-1, 0, 1]:
-            for dy in [-1, 0, 1]:
-                if dx == 0 and dy == 0:
-                    continue
-                neighbor_coord = (x + dx, y + dy)
-                if self.in_map(neighbor_coord):
-                    neighbors[neighbor_coord] = self.get(neighbor_coord)
+        """ @param coord: a pair (x, y), the coordinate of the current cell
+            @return: a list of valid neighboring coordinates
+        """
+        # Define all possible directions (up, up-right, right, down-right, down, down-left, left, up-left)
+        directions = [
+            (0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0), (-1, 1)
+        ]
+        
+        neighbors = []
+        
+        for dx, dy in directions:
+            neighbor_coord = (coord[0] + dx, coord[1] + dy)
+            if self.in_map(neighbor_coord):
+                # Check if the cell is not marked as "?" (i.e., has valid data)
+                if self.get(neighbor_coord) is not None:
+                    neighbors.append(neighbor_coord)
+        
+        print("NEIGHBORS: ", neighbors)
         return neighbors
+
+    
+    def get_bounds(self):
+
+        min_x = min(key[0] for key in self.map_data.keys())
+        max_x = max(key[0] for key in self.map_data.keys())
+        min_y = min(key[1] for key in self.map_data.keys())
+        max_y = max(key[1] for key in self.map_data.keys())
+
+        return min_x, max_x, min_y, max_y
