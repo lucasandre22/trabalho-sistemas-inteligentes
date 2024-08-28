@@ -49,7 +49,8 @@ class Rescuer(AbstAgent):
         self.clusters = clusters     # the clusters of victims this agent should take care of - see the method cluster_victims
         self.sequences = clusters    # the sequence of visit of victims for each cluster
 
-        self.model = load_model("./modelo_rede_neural.h5")
+        self.regressor = load_model("./modelo_rede_neural.h5")
+        self.classifier = load_model("./modelo_rede_neural_classificador.h5")
 
                 
         # Starts in IDLE state.
@@ -135,9 +136,22 @@ class Rescuer(AbstAgent):
             This implementation assigns random values to both, severity value and class"""
 
         for vic_id, values in self.victims.items():
-            severity_value = random.uniform(0.1, 99.9)          # to be replaced by a regressor 
-            severity_class = random.randint(1, 4)               # to be replaced by a classifier
-            values[1].extend([severity_value, severity_class])  # append to the list of vital signals; values is a pair( (x,y), [<vital signals list>] )
+            _, vital_signals = values
+            
+            # Extract the last 3 vital signals
+            last_three_signals = vital_signals[-3:]
+            last_three_signals_array = np.array(last_three_signals).reshape(1, -1)
+            
+            # Predict severity value using the regressor
+            severity_value = self.regressor.predict(last_three_signals_array)[0][0]
+            
+            # Predict severity class using the classifier
+            severity_class = np.argmax(self.classifier.predict(last_three_signals_array), axis=-1)[0]
+            
+            # Append the predictions to the vital signals
+            vital_signals.extend([severity_value, severity_class])
+            self.victims[vic_id] = (values[0], vital_signals)
+            print (self.victims[vic_id])
 
     #TODO: DONE!
     def sequencing(self):
