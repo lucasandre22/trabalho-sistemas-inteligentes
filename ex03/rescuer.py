@@ -75,7 +75,7 @@ class Rescuer(AbstAgent):
                 vs = values[1]        # list of vital signals
                 writer.writerow([id, x, y, vs[6], vs[7]])
 
-    #TODO: arrumar cluster
+    #TODO: arrumar cluster, chamar k_means
     def cluster_victims(self):
         """ this method does a naive clustering of victims per quadrant: victims in the
             upper left quadrant compose a cluster, victims in the upper right quadrant, another one, and so on.
@@ -257,6 +257,55 @@ class Rescuer(AbstAgent):
                 rescuer.planner()            # make the plan for the trajectory
                 rescuer.set_state(VS.ACTIVE) # from now, the simulator calls the deliberation method 
 
+    def deliberate(self) -> bool:
+        """ This is the choice of the next action. The simulator calls this
+        method at each reasonning cycle if the agent is ACTIVE.
+        Must be implemented in every agent
+        @return True: there's one or more actions to do
+        @return False: there's no more action to do """
+
+        # No more actions to do
+        if self.plan == []:  # empty list, no more actions to do
+           print(f"{self.NAME} has finished the plan [ENTER]")
+           return False
+
+        # Takes the first action of the plan (walk action) and removes it from the plan
+        dx, dy = self.plan.pop(0)
+        #print(f"{self.NAME} pop dx: {dx} dy: {dy} ")
+
+        # Walk - just one step per deliberation
+        walked = self.walk(dx, dy)
+
+        # Rescue the victim at the current position
+        if walked == VS.EXECUTED:
+            self.x += dx
+            self.y += dy
+            #print(f"{self.NAME} Walk ok - Rescuer at position ({self.x}, {self.y})")
+
+            # check if there is a victim at the current position
+            if self.map.in_map((self.x, self.y)):
+                vic_id = self.map.get_vic_id((self.x, self.y))
+                if vic_id != VS.NO_VICTIM:
+                    self.first_aid()
+                    #if self.first_aid(): # True when rescued
+                        #print(f"{self.NAME} Victim rescued at ({self.x}, {self.y})")                    
+        else:
+            print(f"{self.NAME} Plan fail - walk error - agent at ({self.x}, {self.x})")
+            
+        # Espera o usuário apertar ENTER antes de continuar para a próxima ação
+        input(f"{self.NAME} remaining time: {self.get_rtime()} [Press ENTER to continue]")
+
+        return True
+
+
+
+
+
+
+
+
+##########################################################
+    # Esses métodos não são necessários (dá pra tirar depois que tiver tudo pronto)
     def calc_gravity(self, vs):
         sinais = vs[-3:]
         sinais_array = np.array(sinais).reshape(1, -1) 
@@ -374,43 +423,3 @@ class Rescuer(AbstAgent):
         print(f"{self.NAME} END OF PLAN")
         print(self.plan)
         self.set_state(VS.ACTIVE)
-
-    def deliberate(self) -> bool:
-        """ This is the choice of the next action. The simulator calls this
-        method at each reasonning cycle if the agent is ACTIVE.
-        Must be implemented in every agent
-        @return True: there's one or more actions to do
-        @return False: there's no more action to do """
-
-        # No more actions to do
-        if self.plan == []:  # empty list, no more actions to do
-           print(f"{self.NAME} has finished the plan [ENTER]")
-           return False
-
-        # Takes the first action of the plan (walk action) and removes it from the plan
-        dx, dy = self.plan.pop(0)
-        #print(f"{self.NAME} pop dx: {dx} dy: {dy} ")
-
-        # Walk - just one step per deliberation
-        walked = self.walk(dx, dy)
-
-        # Rescue the victim at the current position
-        if walked == VS.EXECUTED:
-            self.x += dx
-            self.y += dy
-            #print(f"{self.NAME} Walk ok - Rescuer at position ({self.x}, {self.y})")
-
-            # check if there is a victim at the current position
-            if self.map.in_map((self.x, self.y)):
-                vic_id = self.map.get_vic_id((self.x, self.y))
-                if vic_id != VS.NO_VICTIM:
-                    self.first_aid()
-                    #if self.first_aid(): # True when rescued
-                        #print(f"{self.NAME} Victim rescued at ({self.x}, {self.y})")                    
-        else:
-            print(f"{self.NAME} Plan fail - walk error - agent at ({self.x}, {self.x})")
-            
-        # Espera o usuário apertar ENTER antes de continuar para a próxima ação
-        input(f"{self.NAME} remaining time: {self.get_rtime()} [Press ENTER to continue]")
-
-        return True
