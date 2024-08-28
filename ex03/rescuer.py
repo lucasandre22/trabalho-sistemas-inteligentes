@@ -17,6 +17,7 @@ from abc import ABC, abstractmethod
 import heapq
 import csv
 from bfs import BFS
+from k_means import KMeans
 
 import numpy as np
 import tensorflow as tf
@@ -84,51 +85,29 @@ class Rescuer(AbstAgent):
             @returns: a list of clusters where each cluster is a dictionary in the format [vic_id]: ((x,y), [<vs>])
                       such as vic_id is the victim id, (x,y) is the victim's position, and [<vs>] the list of vital signals
                       including the severity value and the corresponding label"""
-
-
-        # Find the upper and lower limits for x and y
-        lower_xlim = sys.maxsize    
-        lower_ylim = sys.maxsize
-        upper_xlim = -sys.maxsize - 1
-        upper_ylim = -sys.maxsize - 1
-
-        vic = self.victims
-    
-        for key, values in self.victims.items():
-            x, y = values[0]
-            lower_xlim = min(lower_xlim, x) 
-            upper_xlim = max(upper_xlim, x)
-            lower_ylim = min(lower_ylim, y)
-            upper_ylim = max(upper_ylim, y)
         
-        # Calculate midpoints
-        mid_x = lower_xlim + (upper_xlim - lower_xlim) / 2
-        mid_y = lower_ylim + (upper_ylim - lower_ylim) / 2
-        print(f"{self.NAME} ({lower_xlim}, {lower_ylim}) - ({upper_xlim}, {upper_ylim})")
-        print(f"{self.NAME} cluster mid_x, mid_y = {mid_x}, {mid_y}")
-    
-        # Divide dictionary into quadrants
-        upper_left = {}
-        upper_right = {}
-        lower_left = {}
-        lower_right = {}
-        
+        coordinates = []
         for key, values in self.victims.items():  # values are pairs: ((x,y), [<vital signals list>])
-            x, y = values[0]
-            if x <= mid_x:
-                if y <= mid_y:
-                    upper_left[key] = values
-                else:
-                    lower_left[key] = values
-            else:
-                if y <= mid_y:
-                    upper_right[key] = values
-                else:
-                    lower_right[key] = values
-    
-        return [upper_left, upper_right, lower_left, lower_right]
+            coordinates.append(values[0])
+        kmeans = KMeans(n_clusters=4, max_iters=300)
+        kmeans.fit(coordinates)
 
-    #TODO: predict
+        final_clusters = []
+
+        #mapeia coordenadas -> id
+        victim_id_to_coordinates = {}
+        for key, values in self.victims.items():
+            victim_id_to_coordinates[values[0]] = key
+        
+        for cluster in kmeans.get_clusters():
+            cluter_tmp = {}
+            for position in cluster:
+                victim_id = victim_id_to_coordinates[position]
+                cluter_tmp[victim_id] = self.victims[victim_id]
+            final_clusters.append(cluter_tmp)
+
+        return final_clusters
+
     def predict_severity_and_class(self):
         """ @TODO to be replaced by a classifier and a regressor to calculate the class of severity and the severity values.
             This method should add the vital signals(vs) of the self.victims dictionary with these two values.
@@ -138,22 +117,21 @@ class Rescuer(AbstAgent):
         for vic_id, values in self.victims.items():
             _, vital_signals = values
             
-            # Extract the last 3 vital signals
+            #Extract the last 3 vital signals
             last_three_signals = vital_signals[-3:]
             last_three_signals_array = np.array(last_three_signals).reshape(1, -1)
             
-            # Predict severity value using the regressor
+            #Predict severity value using the regressor
             severity_value = self.regressor.predict(last_three_signals_array)[0][0]
             
-            # Predict severity class using the classifier
+            #Predict severity class using the classifier
             severity_class = np.argmax(self.classifier.predict(last_three_signals_array), axis=-1)[0]
             
-            # Append the predictions to the vital signals
+            #Append the predictions to the vital signals
             vital_signals.extend([severity_value, severity_class])
             self.victims[vic_id] = (values[0], vital_signals)
             print (self.victims[vic_id])
 
-    #TODO: DONE!
     def sequencing(self):
         """ Currently, this method sort the victims by the x coordinate followed by the y coordinate
             @TODO It must be replaced by a Genetic Algorithm that finds the possibly best visiting order """
