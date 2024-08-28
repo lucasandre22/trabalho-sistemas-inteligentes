@@ -6,12 +6,9 @@
 
 from collections import deque
 import math
-import heapq
 from vs.abstract_agent import AbstAgent
 from vs.constants import VS
 from map import Map
-import random
-import csv
 from k_means import KMeans
 
 class Stack:
@@ -323,6 +320,7 @@ class Explorer(AbstAgent):
                 # pass the walls and the victims (here, they're empty)
                 self.set_state(VS.IDLE)
                 print(f"{self.NAME}: rtime {self.get_rtime()}, invoking the rescuer")
+                self.resc.sync_explorers(self.map, self.victims)
                 #input(f"{self.NAME}: type [ENTER] to proceed")
 
                 #Do not save victims yet, wait for clusters

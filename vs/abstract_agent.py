@@ -109,6 +109,9 @@ class AbstAgent:
         """ This protected method allows the environment to change the state of the agent"""
         self.__body._state  = value
         
+    def get_env(self):
+        return self.__env
+        
     def walk(self, dx, dy):
         """ Public method for moving the agent's body one cell to any direction (if possible)
         @param dx: an int value corresponding to deplacement in the x axis

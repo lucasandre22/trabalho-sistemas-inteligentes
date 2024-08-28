@@ -92,6 +92,21 @@ class Map:
         
         print("NEIGHBORS: ", neighbors)
         return neighbors
+    
+    def get_difficulty(self, coord):
+        """ get only the difficulty value associated to a coord key: a triple (diff, vic_id, [actions' results])
+            @param coord: a pair (x, y), the key of the dictionary"""
+        return self.map_data.get(coord)[0]
+
+    def get_vic_id(self, coord):
+        """ get only the victim id number associated to a coord key: a triple (diff, vic_id, [actions' results])
+            @param coord: a pair (x, y), the key of the dictionary"""
+        return self.map_data.get(coord)[1]
+
+    def get_actions_results(self, coord):
+        """ get only the actions' results associated to a coord key: a triple (diff, vic_id, [actions' results])
+            @param coord: a pair (x, y), the key of the dictionary"""
+        return self.map_data.get(coord)[2]
 
     
     def get_bounds(self):

@@ -22,20 +22,20 @@ def main(data_folder_name):
     rescuer_file = os.path.join(data_folder, "rescuer_config.txt")
     explorer_file = os.path.join(data_folder, "explorer_config.txt")
     
-    # Instantiate agents rescuer and explorer
-    resc1 = Rescuer(env, rescuer_file)
-    resc2 = Rescuer(env, rescuer_file)
-    resc3 = Rescuer(env, rescuer_file)
-    resc4 = Rescuer(env, rescuer_file)
+    # Instantiate the master rescuer
+    master_rescuer = Rescuer(env, rescuer_file, 4)
+    #resc2 = Rescuer(env, rescuer_file)
+    #resc3 = Rescuer(env, rescuer_file)
+    #resc4 = Rescuer(env, rescuer_file)
 
     general_map = Map()
 
     # Explorer needs to know rescuer to send the map
     # that's why rescuer is instatiated before
-    explorer1 = Explorer(env, explorer_file, resc1, 1, general_map, "robesta")
-    explorer2 = Explorer(env, explorer_file, resc2, 2, general_map, "robobo")
-    explorer3 = Explorer(env, explorer_file, resc3, 3, general_map, "robonaldinho")
-    explorer4 = Explorer(env, explorer_file, resc4, 4, general_map, "robinho")
+    explorer1 = Explorer(env, explorer_file, master_rescuer, 1, general_map, "robesta")
+    explorer2 = Explorer(env, explorer_file, master_rescuer, 2, general_map, "robobo")
+    explorer3 = Explorer(env, explorer_file, master_rescuer, 3, general_map, "robonaldinho")
+    explorer4 = Explorer(env, explorer_file, master_rescuer, 4, general_map, "robinho")
 
     # Run the environment simulator
     env.run()
@@ -48,6 +48,6 @@ if __name__ == '__main__':
     if len(sys.argv) > 1:
         data_folder_name = sys.argv[1]
     else:
-        data_folder_name = os.path.join("datasets", "data_300v_90x90")
+        data_folder_name = os.path.join("datasets", "data_10v_50x50")
         
     main(data_folder_name)

@@ -312,25 +312,25 @@ class Env:
                 elif body._state == VS.IDLE:
                     active_or_idle = True
 
-                if body._state == VS.ENDED and body.mind.is_explorer and not (len(explorers_terminated) == len(self.agents) / 2) and not k_means_ready:
-                    # Salva vitimas encontradas aqui
-                    if body not in explorers_terminated:
-                        explorers_terminated[body] = body.mind.victims
-                    if len(explorers_terminated) == len(self.agents) / 2 and not k_means_ready:
-                        print("Start k means!")
-                        victims_key = {}
-                        coordinates = []
-                        for sublist in explorers_terminated.values():
-                            coordinates.extend([coords for coords, _ in sublist.values()])
+                # if body._state == VS.ENDED and body.mind.is_explorer and not (len(explorers_terminated) == len(self.agents) / 2) and not k_means_ready:
+                #     # Salva vitimas encontradas aqui
+                #     if body not in explorers_terminated:
+                #         explorers_terminated[body] = body.mind.victims
+                #     if len(explorers_terminated) == len(self.agents) / 2 and not k_means_ready:
+                #         print("Start k means!")
+                #         victims_key = {}
+                #         coordinates = []
+                #         for sublist in explorers_terminated.values():
+                #             coordinates.extend([coords for coords, _ in sublist.values()])
 
-                            for value in sublist.values():
-                                victims_key[value[0]] = value[1][0]
+                #             for value in sublist.values():
+                #                 victims_key[value[0]] = value[1][0]
 
-                        self.Kmeans.fit(coordinates)
-                        self.Kmeans.generate_clusters_files(victims_key, self.gravity, self.severity)
-                        k_means_ready = True
-                        for explorer_body in explorers_terminated.keys():
-                            explorer_body.mind.resc.go_save_victims(explorer_body.mind.map, explorer_body.mind.victims)
+                #         self.Kmeans.fit(coordinates)
+                #         self.Kmeans.generate_clusters_files(victims_key, self.gravity, self.severity)
+                #         k_means_ready = True
+                #         for explorer_body in explorers_terminated.keys():
+                #             explorer_body.mind.resc.go_save_victims(explorer_body.mind.map, explorer_body.mind.victims)
 
             # Update the grid after the delay
             if self.dic["DELAY"] > 0:
