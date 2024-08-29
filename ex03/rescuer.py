@@ -118,11 +118,6 @@ class Rescuer(AbstAgent):
         return final_clusters
 
     def predict_severity_and_class(self):
-        """ @TODO to be replaced by a classifier and a regressor to calculate the class of severity and the severity values.
-            This method should add the vital signals(vs) of the self.victims dictionary with these two values.
-
-            This implementation assigns random values to both, severity value and class"""
-
         for vic_id, values in self.victims.items():
             _, vital_signals = values
             
@@ -134,7 +129,8 @@ class Rescuer(AbstAgent):
             severity_value = self.regressor.predict(last_three_signals_array)[0][0]
             
             #Predict severity class using the classifier
-            severity_class = np.argmax(self.classifier.predict(last_three_signals_array), axis=-1)[0]
+            severity_class_prob = self.classifier.predict(last_three_signals_array)
+            severity_class = np.argmax(severity_class_prob) + 1
             
             #Append the predictions to the vital signals
             vital_signals.extend([severity_value, severity_class])
@@ -293,9 +289,6 @@ class Rescuer(AbstAgent):
         else:
             print(f"{self.NAME} Plan fail - walk error - agent at ({self.x}, {self.x})")
             
-        # Espera o usuário apertar ENTER antes de continuar para a próxima ação
-        input(f"{self.NAME} remaining time: {self.get_rtime()} [Press ENTER to continue]")
-
         return True
 
 
