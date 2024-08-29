@@ -17,7 +17,8 @@ from abc import ABC, abstractmethod
 import heapq
 import csv
 from bfs import BFS
-from k_means import KMeans
+#from k_means import KMeans
+from sklearn.cluster import KMeans
 
 import numpy as np
 import tensorflow as tf
@@ -85,21 +86,29 @@ class Rescuer(AbstAgent):
             @returns: a list of clusters where each cluster is a dictionary in the format [vic_id]: ((x,y), [<vs>])
                       such as vic_id is the victim id, (x,y) is the victim's position, and [<vs>] the list of vital signals
                       including the severity value and the corresponding label"""
-        
+        N_CLUSTERS = 4
         coordinates = []
         for key, values in self.victims.items():  # values are pairs: ((x,y), [<vital signals list>])
             coordinates.append(values[0])
-        kmeans = KMeans(n_clusters=4, max_iters=300)
-        kmeans.fit(coordinates)
+        kmeans = KMeans(n_clusters=N_CLUSTERS, max_iter=300)
+        cluster_indexes = kmeans.fit_predict(coordinates)
 
+
+        #Create clusters from positions
+        clusters = [[] for _ in range(4)]
         final_clusters = []
+        #0 -> coordenadas
+        j = 0
+        for i in cluster_indexes:
+            clusters[i].append(coordinates[j])
+            j += 1
 
         #mapeia coordenadas -> id
         victim_id_to_coordinates = {}
         for key, values in self.victims.items():
             victim_id_to_coordinates[values[0]] = key
         
-        for cluster in kmeans.get_clusters():
+        for cluster in clusters:
             cluter_tmp = {}
             for position in cluster:
                 victim_id = victim_id_to_coordinates[position]
@@ -222,7 +231,7 @@ class Rescuer(AbstAgent):
             self.clusters = [clusters_of_vic[0]]  # the first one
 
             # Instantiate the other rescuers and assign the clusters to them
-            for i in range(1, 4):    
+            for i in range(1, 4):
                 #print(f"{self.NAME} instantianting rescuer {i+1}, {self.get_env()}")
                 #filename = f"rescuer_{i+1:1d}_config.txt"
                 #config_file = os.path.join(self.config_folder, filename)

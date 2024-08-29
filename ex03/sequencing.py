@@ -43,14 +43,16 @@ class SenquencyDefiner():
             #Do we use the severity or class_severity??
             severity = current_victim[1][6]
             class_severity = current_victim[1][7]
-            total_distance += self.distance(previous_victim[0], current_victim[0]) / class_severity**2 #exponential to make the severity change more the result
+            total_distance += self.distance(previous_victim[0], current_victim[0]) / class_severity #exponential to make the severity change more the result
             previous_victim = current_victim
             
         return 1.0 / total_distance
     
     def get_best_sequencing(self):
+        #number out of my butt
+        num_generations = len(self.initial_sequence) * 5
         ga_instance = pygad.GA(
-            num_generations=500, #fix to be related to array size
+            num_generations=num_generations,
             num_parents_mating=10,
             fitness_func=self.fitness_func,
             sol_per_pop=100,
